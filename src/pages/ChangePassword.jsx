@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export default function ChangePassword() {
   const { updatePassword, profile, signOut } = useAuth()
+  const navigate = useNavigate()
   const [newPassword, setNewPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,6 +24,7 @@ export default function ChangePassword() {
     setError(null)
     try {
       await updatePassword(newPassword)
+      navigate('/equipamiento', { replace: true })
     } catch (err) {
       setError('Error al cambiar la contraseña: ' + err.message)
       setLoading(false)
