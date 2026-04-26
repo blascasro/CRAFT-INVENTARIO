@@ -70,9 +70,9 @@ module.exports = async function handler(req, res) {
 
   // ── POST /api/users ───────────────────────────────────────────────────────
   if (req.method === 'POST') {
-    const { email, password, username, role } = req.body || {}
-    if (!email || !password || !username) {
-      return res.status(400).json({ error: 'email, password y username son requeridos' })
+    const { email, password, role } = req.body || {}
+    if (!email || !password) {
+      return res.status(400).json({ error: 'email y password son requeridos' })
     }
 
     try {
@@ -85,7 +85,7 @@ module.exports = async function handler(req, res) {
 
       const { error: profileErr } = await supabaseAdmin.from('profiles').insert({
         id: newUser.id,
-        username: username.trim(),
+        email: email.trim(),
         role: role === 'admin' ? 'admin' : 'volunteer',
         must_change_password: true,
       })

@@ -71,7 +71,7 @@ export default function ChangePassword() {
               Cambiar contraseña
             </h2>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              Hola <strong>{profile?.username}</strong>, necesitás establecer una nueva
+              Hola <strong>{profile?.email}</strong>, necesitás establecer una nueva
               contraseña para continuar.
             </p>
           </div>

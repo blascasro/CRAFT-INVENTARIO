@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS profiles (
   id                   UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  username             TEXT UNIQUE NOT NULL,
+  email                TEXT UNIQUE NOT NULL,
   role                 TEXT CHECK (role IN ('admin', 'volunteer')) DEFAULT 'volunteer',
   branch_name          TEXT DEFAULT 'Tandil',
   must_change_password BOOLEAN DEFAULT true,

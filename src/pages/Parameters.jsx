@@ -317,7 +317,7 @@ function UsersTab() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ email: '', username: '', password: '', role: 'volunteer' })
+  const [form, setForm] = useState({ email: '', password: '', role: 'volunteer' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -349,7 +349,7 @@ function UsersTab() {
       setError(data.error || 'Error al crear usuario')
     } else {
       setShowModal(false)
-      setForm({ email: '', username: '', password: '', role: 'volunteer' })
+      setForm({ email: '', password: '', role: 'volunteer' })
       fetchUsers()
     }
     setSaving(false)
@@ -407,7 +407,6 @@ function UsersTab() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Usuario</th>
                 <th>Email</th>
                 <th>Rol</th>
                 <th>Estado</th>
@@ -417,8 +416,7 @@ function UsersTab() {
             <tbody>
               {users.map(u => (
                 <tr key={u.id}>
-                  <td style={{ fontWeight: 500 }}>{u.profile?.username || '—'}</td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{u.email}</td>
+                  <td style={{ fontWeight: 500 }}>{u.email}</td>
                   <td>
                     <select
                       value={u.profile?.role || 'volunteer'}
@@ -485,9 +483,6 @@ function UsersTab() {
             <form onSubmit={createUser}>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Email *</label>
               <input type="email" required value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} style={inputStyle} placeholder="usuario@email.com" />
-
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nombre de usuario *</label>
-              <input required value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} style={inputStyle} placeholder="nombre.apellido" />
 
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contraseña temporal *</label>
               <input type="password" required minLength={8} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} style={inputStyle} placeholder="Mínimo 8 caracteres" />

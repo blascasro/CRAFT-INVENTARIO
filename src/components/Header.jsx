@@ -94,10 +94,10 @@ export default function Header() {
               flexShrink: 0,
             }}
           >
-            {(profile?.username || 'U').charAt(0).toUpperCase()}
+            {(profile?.email || 'U').charAt(0).toUpperCase()}
           </div>
           <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
-            {profile?.username || 'Usuario'}
+            {profile?.email || 'Usuario'}
           </span>
           {profile?.role === 'admin' && (
             <span
