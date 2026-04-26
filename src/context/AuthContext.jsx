@@ -19,7 +19,16 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
+    // Si la URL todavía tiene el hash de Supabase (access_token), getSession()
+    // lo procesa automáticamente y establece la sesión. Después limpiamos el hash
+    // para que no quede visible en la barra de direcciones.
+    const hasAuthCallback = window.location.hash.includes('access_token=')
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (hasAuthCallback) {
+        // Limpiar el hash de la URL una vez que Supabase procesó el token
+        window.history.replaceState(null, '', window.location.pathname)
+      }
       setUser(session?.user ?? null)
       if (session?.user) {
         fetchProfile(session.user.id).finally(() => setLoading(false))
