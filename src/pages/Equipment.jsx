@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, withTimeout } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import AIInput from '../components/AIInput'
 import ExportButton from '../components/ExportButton'
@@ -33,6 +33,7 @@ export default function Equipment() {
   const isAdmin = profile?.role === 'admin'
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [filterType, setFilterType] = useState('')
   const [filterCondition, setFilterCondition] = useState('')
   const [editingId, setEditingId] = useState(null)
@@ -40,13 +41,18 @@ export default function Equipment() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('equipment')
-      .select('*')
-      .order('type')
-      .order('item_number', { nullsFirst: true })
-    if (!error) setItems(data || [])
-    setLoading(false)
+    setError(null)
+    try {
+      const { data, error: dbErr } = await withTimeout(
+        supabase.from('equipment').select('*').order('type').order('item_number', { nullsFirst: true }),
+      )
+      if (dbErr) throw new Error(dbErr.message)
+      setItems(data || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -116,9 +122,13 @@ export default function Equipment() {
     minWidth: 180,
   }
 
-  if (loading) {
-    return <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 14 }}>Cargando equipamiento…</div>
-  }
+  if (loading) return <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 14 }}>Cargando equipamiento…</div>
+  if (error) return (
+    <div style={{ padding: 24 }}>
+      <p style={{ color: '#ef4444', fontSize: 14, marginBottom: 12 }}>{error}</p>
+      <button onClick={fetchData} className="btn-secondary" style={{ fontSize: 13 }}>↺ Reintentar conexión</button>
+    </div>
+  )
 
   return (
     <div>

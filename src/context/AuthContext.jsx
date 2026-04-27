@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, withTimeout } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
@@ -9,11 +9,9 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   async function fetchProfile(userId) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    const { data, error } = await withTimeout(
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+    )
 
     // Si la sesión ya no es válida (JWT expirado / revocado), limpiar y salir
     if (error) {
@@ -77,12 +75,17 @@ export function AuthProvider({ children }) {
 
         // SIGNED_IN, INITIAL_SESSION, PASSWORD_RECOVERY u otros
         setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchProfile(session.user.id)
-        } else {
-          setProfile(null)
+        try {
+          if (session?.user) {
+            await fetchProfile(session.user.id)
+          } else {
+            setProfile(null)
+          }
+        } catch {
+          // Si fetchProfile falla (timeout, red) no quedarse colgado
+        } finally {
+          setLoading(false)
         }
-        setLoading(false)
       }
     )
 

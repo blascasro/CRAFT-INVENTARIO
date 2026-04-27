@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, withTimeout } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import AIInput from '../components/AIInput'
 import ExportButton from '../components/ExportButton'
@@ -53,15 +53,25 @@ export default function Supplies() {
   const isAdmin = profile?.role === 'admin'
   const [supplies, setSupplies] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [search, setSearch] = useState('')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase.from('supplies').select('*').order('name')
-    if (!error) setSupplies(data || [])
-    setLoading(false)
+    setError(null)
+    try {
+      const { data, error: dbErr } = await withTimeout(
+        supabase.from('supplies').select('*').order('name'),
+      )
+      if (dbErr) throw new Error(dbErr.message)
+      setSupplies(data || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -114,10 +124,13 @@ export default function Supplies() {
     fontFamily: 'var(--font-family)',
   }
 
-  if (loading) {
-    return <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 14 }}>Cargando insumos…</div>
-  }
-
+  if (loading) return <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 14 }}>Cargando insumos…</div>
+  if (error) return (
+    <div style={{ padding: 24 }}>
+      <p style={{ color: '#ef4444', fontSize: 14, marginBottom: 12 }}>{error}</p>
+      <button onClick={fetchData} className="btn-secondary" style={{ fontSize: 13 }}>↺ Reintentar conexión</button>
+    </div>
+  )
   const chartHeight = Math.max(chartData.length * 32 + 50, 180)
 
   return (

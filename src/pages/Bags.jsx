@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, withTimeout } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import AIInput from '../components/AIInput'
 import ExportButton from '../components/ExportButton'
@@ -184,15 +184,22 @@ export default function Bags() {
   const isAdmin = profile?.role === 'admin'
   const [bags, setBags] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('bags')
-      .select('*, bag_type:bag_types(name), bag_contents(*)')
-      .order('bag_number')
-    if (!error) setBags(data || [])
-    setLoading(false)
+    setError(null)
+    try {
+      const { data, error: dbErr } = await withTimeout(
+        supabase.from('bags').select('*, bag_type:bag_types(name), bag_contents(*)').order('bag_number'),
+      )
+      if (dbErr) throw new Error(dbErr.message)
+      setBags(data || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -217,9 +224,13 @@ export default function Bags() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  if (loading) {
-    return <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 14 }}>Cargando morrales…</div>
-  }
+  if (loading) return <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 14 }}>Cargando morrales…</div>
+  if (error) return (
+    <div style={{ padding: 24 }}>
+      <p style={{ color: '#ef4444', fontSize: 14, marginBottom: 12 }}>{error}</p>
+      <button onClick={fetchData} className="btn-secondary" style={{ fontSize: 13 }}>↺ Reintentar conexión</button>
+    </div>
+  )
 
   return (
     <div>
