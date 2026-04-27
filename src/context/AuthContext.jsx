@@ -9,24 +9,45 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   async function fetchProfile(userId) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
+
+    // Si la sesión ya no es válida (JWT expirado / revocado), limpiar y salir
+    if (error) {
+      const msg = error.message || ''
+      if (
+        error.status === 401 ||
+        msg.includes('JWT') ||
+        msg.includes('invalid') ||
+        msg.includes('expired')
+      ) {
+        await supabase.auth.signOut()
+        clearSession()
+        return null
+      }
+    }
+
     setProfile(data)
     return data
   }
 
+  // Limpia el estado local y fuerza vuelta al login
+  function clearSession() {
+    setUser(null)
+    setProfile(null)
+    setLoading(false)
+  }
+
   useEffect(() => {
-    // Si la URL todavía tiene el hash de Supabase (access_token), getSession()
-    // lo procesa automáticamente y establece la sesión. Después limpiamos el hash
-    // para que no quede visible en la barra de direcciones.
+    // Si la URL tiene el hash de Supabase (magic link / password reset),
+    // getSession() lo procesa y establece la sesión. Después limpiamos el hash.
     const hasAuthCallback = window.location.hash.includes('access_token=')
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (hasAuthCallback) {
-        // Limpiar el hash de la URL una vez que Supabase procesó el token
         window.history.replaceState(null, '', window.location.pathname)
       }
       setUser(session?.user ?? null)
@@ -39,6 +60,22 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'SIGNED_OUT' || event === 'TOKEN_EXPIRED') {
+          // Token expirado o cierre de sesión: limpiar y dejar que el router
+          // redirija a /login via ProtectedRoute
+          clearSession()
+          return
+        }
+
+        if (event === 'TOKEN_REFRESHED') {
+          // Token renovado automáticamente: solo actualizar el usuario,
+          // no volver a buscar el perfil (ya está en memoria)
+          setUser(session?.user ?? null)
+          setLoading(false)
+          return
+        }
+
+        // SIGNED_IN, INITIAL_SESSION, PASSWORD_RECOVERY u otros
         setUser(session?.user ?? null)
         if (session?.user) {
           await fetchProfile(session.user.id)
