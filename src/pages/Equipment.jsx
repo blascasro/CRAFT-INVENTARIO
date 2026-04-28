@@ -31,6 +31,7 @@ function ConditionBadge({ condition }) {
 export default function Equipment() {
   const { profile, user } = useAuth()
   const isAdmin = profile?.role === 'admin'
+  const canEdit = isAdmin || profile?.role === 'volunteer'
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -232,7 +233,7 @@ export default function Equipment() {
                   <th>Año</th>
                   <th>Condición</th>
                   <th>Observaciones</th>
-                  {isAdmin && <th>Acción</th>}
+                  {canEdit && <th>Acción</th>}
                 </tr>
               </thead>
               <tbody>
@@ -279,7 +280,7 @@ export default function Equipment() {
                         </span>
                       )}
                     </td>
-                    {isAdmin && (
+                    {canEdit && (
                       <td>
                         {editingId === item.id ? (
                           <div style={{ display: 'flex', gap: 8 }}>
@@ -318,7 +319,7 @@ export default function Equipment() {
         </div>
       ))}
 
-      {isAdmin && (
+      {canEdit && (
         <div style={{ marginTop: 16 }}>
           <AIInput section="equipment" onChangesApplied={fetchData} />
         </div>

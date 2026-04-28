@@ -51,6 +51,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Supplies() {
   const { profile, user } = useAuth()
   const isAdmin = profile?.role === 'admin'
+  const canEdit = isAdmin || profile?.role === 'volunteer'
   const [supplies, setSupplies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -249,7 +250,7 @@ export default function Supplies() {
               <th style={{ textAlign: 'right' }}>Actual</th>
               <th style={{ textAlign: 'right' }}>Faltante</th>
               <th style={{ textAlign: 'right' }}>%</th>
-              {isAdmin && <th>Acción</th>}
+              {canEdit && <th>Acción</th>}
             </tr>
           </thead>
           <tbody>
@@ -277,12 +278,12 @@ export default function Supplies() {
                       />
                     ) : (
                       <span
-                        title={isAdmin ? 'Clic para editar' : ''}
-                        onClick={() => { if (isAdmin) { setEditingId(supply.id); setEditValue(String(supply.current_stock)) } }}
+                        title={canEdit ? 'Clic para editar' : ''}
+                        onClick={() => { if (canEdit) { setEditingId(supply.id); setEditValue(String(supply.current_stock)) } }}
                         style={{
                           fontWeight: 600,
                           color: p > 50 ? '#ef4444' : p >= 20 ? '#d97706' : 'var(--text)',
-                          cursor: isAdmin ? 'pointer' : 'default',
+                          cursor: canEdit ? 'pointer' : 'default',
                           padding: '2px 6px',
                           borderRadius: 4,
                           transition: 'background 0.1s',
@@ -311,7 +312,7 @@ export default function Supplies() {
                       <span style={{ color: '#16a34a', fontWeight: 600, fontSize: 13 }}>✓</span>
                     )}
                   </td>
-                  {isAdmin && (
+                  {canEdit && (
                     <td>
                       {editingId === supply.id ? null : (
                         <button
@@ -332,7 +333,7 @@ export default function Supplies() {
         </div>
       </div>
 
-      {isAdmin && (
+      {canEdit && (
         <div style={{ marginTop: 24 }}>
           <AIInput section="supplies" onChangesApplied={fetchData} />
         </div>

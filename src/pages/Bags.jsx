@@ -18,7 +18,7 @@ function pctColor(p) {
   return '#ef4444'
 }
 
-function BagCard({ bag, isAdmin, onUpdate }) {
+function BagCard({ bag, canEdit, onUpdate }) {
   const { user } = useAuth()
   const [editing, setEditing] = useState(false)
   const [values, setValues] = useState({})
@@ -177,7 +177,7 @@ function BagCard({ bag, isAdmin, onUpdate }) {
       </div>
 
       {/* Card footer */}
-      {isAdmin && (
+      {canEdit && (
         <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           {editing ? (
             <>
@@ -202,6 +202,7 @@ function BagCard({ bag, isAdmin, onUpdate }) {
 export default function Bags() {
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
+  const canEdit = isAdmin || profile?.role === 'volunteer'
   const [bags, setBags] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -291,7 +292,7 @@ export default function Bags() {
         marginBottom: 28,
       }}>
         {bags.map(bag => (
-          <BagCard key={bag.id} bag={bag} isAdmin={isAdmin} onUpdate={fetchData} />
+          <BagCard key={bag.id} bag={bag} canEdit={canEdit} onUpdate={fetchData} />
         ))}
       </div>
 
@@ -301,7 +302,7 @@ export default function Bags() {
         </div>
       )}
 
-      {isAdmin && (
+      {canEdit && (
         <AIInput section="bags" onChangesApplied={fetchData} />
       )}
     </div>
