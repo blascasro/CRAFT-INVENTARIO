@@ -147,10 +147,11 @@ Los administradores pueden crear usuarios desde la sección **Parámetros → Us
 
 ```
 ├── api/
-│   └── users.js           # Gestión de usuarios (Supabase Admin API)
+│   ├── ai-parse.js        # IA: llama a Anthropic API
+│   └── users.js           # Gestión de usuarios (admin)
 ├── src/
 │   ├── components/
-│   │   ├── AIInput.jsx    # Cuestionario guiado + Web Speech API (sin costo)
+│   │   ├── AIInput.jsx    # Input de lenguaje natural
 │   │   ├── ExportButton.jsx
 │   │   ├── Header.jsx
 │   │   ├── Layout.jsx
