@@ -8,6 +8,7 @@ import Equipment from './pages/Equipment'
 import Supplies from './pages/Supplies'
 import Bags from './pages/Bags'
 import Parameters from './pages/Parameters'
+import Auditoria from './pages/Auditoria'
 
 // Pantalla de carga con botón "Reintentar" si tarda más de 8 segundos
 function LoadingScreen({ message }) {
@@ -86,6 +87,14 @@ export default function App() {
           element={
             <ProtectedRoute adminOnly>
               <Parameters />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="auditoria"
+          element={
+            <ProtectedRoute adminOnly>
+              <Auditoria />
             </ProtectedRoute>
           }
         />

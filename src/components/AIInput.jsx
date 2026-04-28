@@ -488,36 +488,69 @@ export default function AIInput({ section, onChangesApplied }) {
     setApplying(true)
     setError(null)
     try {
+      const descParts = []
+      const COND_LABEL = { good: 'Bueno', damaged: 'Dañado', unknown: 'Desconocido' }
+
       if (section === 'supplies') {
-        for (const c of changes)
+        for (const c of changes) {
+          // Capture current value before update
+          const { data: beforeRows } = await supabase.from('supplies')
+            .select('current_stock').ilike('name', c.name).limit(1)
+          const prevStock = beforeRows?.[0]?.current_stock ?? '?'
+
           await supabase.from('supplies')
             .update({ current_stock: c.new_stock, updated_at: new Date().toISOString() })
             .ilike('name', c.name)
 
+          descParts.push(`${c.name}: ${prevStock} → ${c.new_stock}`)
+        }
+
       } else if (section === 'equipment') {
         for (const c of changes) {
+          // Capture current condition/notes before update
+          let bq = supabase.from('equipment').select('condition, notes').ilike('type', c.type)
+          if (c.number) bq = bq.eq('item_number', c.number)
+          const { data: beforeRows } = await bq.limit(1)
+          const before = beforeRows?.[0]
+          const prevCond = COND_LABEL[before?.condition] ?? before?.condition ?? '?'
+
           const upd = { condition: c.condition, updated_at: new Date().toISOString() }
           if (c.notes) upd.notes = c.notes
-          let q = supabase.from('equipment').update(upd).ilike('type', c.type)
-          if (c.number) q = q.eq('item_number', c.number)
-          await q
+          let uq = supabase.from('equipment').update(upd).ilike('type', c.type)
+          if (c.number) uq = uq.eq('item_number', c.number)
+          await uq
+
+          let part = `${c.type}${c.number ? ' #' + c.number : ''}: ${prevCond} → ${COND_LABEL[c.condition]}`
+          if (c.notes) part += ` (obs: "${c.notes}")`
+          descParts.push(part)
         }
+
       } else {
         for (const c of changes) {
           const { data: bag } = await supabase.from('bags').select('id').eq('bag_number', c.bag_number).single()
-          if (bag)
+          if (bag) {
+            // Capture current quantity before update
+            const { data: beforeRows } = await supabase.from('bag_contents')
+              .select('current_quantity').eq('bag_id', bag.id).ilike('item_name', `%${c.item}%`).limit(1)
+            const prevQty = beforeRows?.[0]?.current_quantity ?? '?'
+
             await supabase.from('bag_contents')
               .update({ current_quantity: c.current_quantity })
               .eq('bag_id', bag.id)
               .ilike('item_name', `%${c.item}%`)
+
+            descParts.push(`Morral ${c.bag_number} — ${c.item}: ${prevQty} → ${c.current_quantity}`)
+          }
         }
       }
 
-      await supabase.from('activity_log').insert({
+      const description = `[${SECTION_LABEL[section]}] ${descParts.join(' | ')}`
+      const { error: logErr } = await supabase.from('activity_log').insert({
         user_id:     user.id,
         action_type: 'manual_update',
-        description: `[${SECTION_LABEL[section]}] ${changes.length} cambio(s) manual(es)`,
+        description,
       })
+      if (logErr) console.error('[activity_log] insert failed:', logErr)
 
       setSuccess(true)
       setChanges([])

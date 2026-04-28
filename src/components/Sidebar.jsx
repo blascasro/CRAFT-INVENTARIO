@@ -30,6 +30,16 @@ const IconParams = () => (
   </svg>
 )
 
+const IconAudit = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+    <polyline points="10 9 9 9 8 9"/>
+  </svg>
+)
+
 const navItems = [
   { to: '/equipamiento', label: 'Equipamiento', Icon: IconEquipment },
   { to: '/insumos', label: 'Insumos', Icon: IconSupplies },
@@ -93,6 +103,18 @@ export default function Sidebar({ isOpen, onClose }) {
             >
               <IconParams />
               Parámetros
+            </NavLink>
+            <NavLink
+              to="/auditoria"
+              onClick={onClose}
+              style={({ isActive }) => ({
+                ...linkBase,
+                background: isActive ? 'rgba(232,17,45,0.08)' : 'transparent',
+                color: isActive ? '#E8112D' : 'var(--text-muted)',
+              })}
+            >
+              <IconAudit />
+              Auditoría
             </NavLink>
           </>
         )}
