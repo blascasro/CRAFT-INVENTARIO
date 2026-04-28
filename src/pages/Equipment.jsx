@@ -151,7 +151,7 @@ export default function Equipment() {
           <ExportButton
             data={exportData}
             headers={['Tipo', 'Número', 'Año', 'Condición', 'Observaciones']}
-            filename={`inventario_cruzroja_equipamiento_${today}.csv`}
+            filename={`inventario_cruzroja_equipamiento_${today}.xlsx`}
           />
         )}
       </div>
@@ -208,6 +208,7 @@ export default function Equipment() {
           </div>
 
           <div style={{ background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
@@ -297,6 +298,7 @@ export default function Equipment() {
               </tbody>
             </table>
           </div>
+            </div>
         </div>
       ))}
 

@@ -1,7 +1,7 @@
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../context/ThemeContext'
 
-export default function Header() {
+export default function Header({ onMenuToggle }) {
   const { profile, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
 
@@ -20,31 +20,44 @@ export default function Header() {
         flexShrink: 0,
       }}
     >
-      {/* Logo + title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            background: '#E8112D',
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2v20M2 12h20" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+      {/* Left: hamburger (mobile) + logo + title */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <button className="header-menu-btn" onClick={onMenuToggle} aria-label="Menú">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
-        </div>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', letterSpacing: '-0.3px' }}>
-            CRAFT
-          </span>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 14, marginLeft: 6 }}>
-            — Cruz Roja Tandil
-          </span>
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              background: '#E8112D',
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2v20M2 12h20" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div>
+            <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', letterSpacing: '-0.3px' }}>
+              CRAFT
+            </span>
+            <span className="header-title-full" style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 14, marginLeft: 6 }}>
+              — Cruz Roja Tandil
+            </span>
+            <span className="header-title-short" style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 13, marginLeft: 6 }}>
+              Tandil
+            </span>
+          </div>
         </div>
       </div>
 

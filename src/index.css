@@ -254,3 +254,101 @@ a {
 .data-table tr:hover td {
   background: var(--surface-hover);
 }
+
+/* ── Responsive layout ───────────────────────────────── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.app-main {
+  flex: 1;
+  overflow: auto;
+  padding: 28px 32px;
+  background: var(--bg);
+}
+
+.app-sidebar {
+  width: 220px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: auto;
+  transition: transform 0.25s ease;
+}
+
+.drawer-backdrop {
+  display: none;
+}
+
+.header-menu-btn {
+  display: none;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  .app-main {
+    padding: 20px 16px;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 300;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-md);
+  }
+
+  .app-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 299;
+    backdrop-filter: blur(1px);
+  }
+
+  .header-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .header-title-full { display: none; }
+  .header-title-short { display: inline; }
+}
+
+@media (min-width: 768px) {
+  .header-title-full { display: inline; }
+  .header-title-short { display: none; }
+}

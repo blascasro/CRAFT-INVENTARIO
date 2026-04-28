@@ -36,42 +36,32 @@ const navItems = [
   { to: '/morrales', label: 'Morrales', Icon: IconBags },
 ]
 
-export default function Sidebar() {
+const linkBase = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: '10px 16px',
+  borderRadius: 8,
+  fontSize: 14,
+  fontWeight: 500,
+  color: 'var(--text-muted)',
+  textDecoration: 'none',
+  transition: 'all 0.15s',
+  marginBottom: 4,
+}
+
+export default function Sidebar({ isOpen, onClose }) {
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
 
-  const linkBase = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    padding: '10px 16px',
-    borderRadius: 8,
-    fontSize: 14,
-    fontWeight: 500,
-    color: 'var(--text-muted)',
-    textDecoration: 'none',
-    transition: 'all 0.15s',
-    marginBottom: 4,
-  }
-
   return (
-    <aside
-      style={{
-        width: 220,
-        background: 'var(--sidebar-bg)',
-        borderRight: '1px solid var(--border)',
-        padding: '20px 12px',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        overflow: 'auto',
-      }}
-    >
+    <aside className={`app-sidebar${isOpen ? ' is-open' : ''}`}>
       <nav style={{ flex: 1 }}>
         {navItems.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
             to={to}
+            onClick={onClose}
             style={({ isActive }) => ({
               ...linkBase,
               background: isActive ? 'rgba(232,17,45,0.08)' : 'transparent',
@@ -94,6 +84,7 @@ export default function Sidebar() {
             />
             <NavLink
               to="/parametros"
+              onClick={onClose}
               style={({ isActive }) => ({
                 ...linkBase,
                 background: isActive ? 'rgba(232,17,45,0.08)' : 'transparent',

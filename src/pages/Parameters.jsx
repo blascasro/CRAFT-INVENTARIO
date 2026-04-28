@@ -27,6 +27,7 @@ function SuppliesTab() {
         Modificar el stock ideal de cada insumo. El stock actual se edita desde la sección Insumos.
       </p>
       <div style={{ background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div className="table-responsive">
         <table className="data-table">
           <thead>
             <tr>
@@ -86,6 +87,7 @@ function SuppliesTab() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
@@ -149,6 +151,7 @@ function BagsTab() {
       </div>
       {selectedType && (
         <div style={{ background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <div className="table-responsive">
           <table className="data-table">
             <thead>
               <tr>
@@ -206,6 +209,7 @@ function BagsTab() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -404,6 +408,7 @@ function UsersTab() {
         <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Cargando usuarios…</div>
       ) : (
         <div style={{ background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <div className="table-responsive">
           <table className="data-table">
             <thead>
               <tr>
@@ -471,6 +476,7 @@ function UsersTab() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

@@ -149,7 +149,7 @@ export default function Supplies() {
           <ExportButton
             data={exportData}
             headers={['Insumo', 'Stock ideal', 'Stock actual', 'Faltante', 'Faltante %', 'Unidad']}
-            filename={`inventario_cruzroja_insumos_${today}.csv`}
+            filename={`inventario_cruzroja_insumos_${today}.xlsx`}
           />
         )}
       </div>
@@ -232,6 +232,7 @@ export default function Supplies() {
       </div>
 
       <div style={{ background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div className="table-responsive">
         <table className="data-table">
           <thead>
             <tr>
@@ -320,6 +321,7 @@ export default function Supplies() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {isAdmin && (

@@ -207,20 +207,16 @@ export default function Bags() {
   const complete = bags.filter(b => completeness(b.bag_contents) >= 100).length
   const incomplete = bags.filter(b => completeness(b.bag_contents) < 100).length
 
-  const exportData = bags.map(b => {
-    const pct = completeness(b.bag_contents)
-    const totalIdeal = b.bag_contents?.reduce((s, c) => s + c.ideal_quantity, 0) || 0
-    const totalActual = b.bag_contents?.reduce((s, c) => s + c.current_quantity, 0) || 0
-    return {
-      'Morral': b.bag_number,
-      'Tipo': b.bag_type?.name || '—',
-      'Condición': b.condition,
-      'Completitud %': pct + '%',
-      'Ítems ideal': totalIdeal,
-      'Ítems actual': totalActual,
-      'Notas': b.notes || '—',
-    }
-  })
+  const exportSheets = bags.map(b => ({
+    name: `Morral ${b.bag_number}`,
+    headers: ['Ítem', 'Cantidad ideal', 'Cantidad actual', 'Faltante'],
+    data: (b.bag_contents || []).map(c => ({
+      'Ítem': c.item_name,
+      'Cantidad ideal': c.ideal_quantity,
+      'Cantidad actual': c.current_quantity,
+      'Faltante': Math.max(0, c.ideal_quantity - c.current_quantity),
+    })),
+  }))
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -261,9 +257,8 @@ export default function Bags() {
         </div>
         {isAdmin && (
           <ExportButton
-            data={exportData}
-            headers={['Morral', 'Tipo', 'Condición', 'Completitud %', 'Ítems ideal', 'Ítems actual', 'Notas']}
-            filename={`inventario_cruzroja_morrales_${today}.csv`}
+            sheets={exportSheets}
+            filename={`inventario_cruzroja_morrales_${today}.xlsx`}
           />
         )}
       </div>
