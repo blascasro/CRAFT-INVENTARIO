@@ -19,6 +19,7 @@ function pctColor(p) {
 }
 
 function BagCard({ bag, isAdmin, onUpdate }) {
+  const { user } = useAuth()
   const [editing, setEditing] = useState(false)
   const [values, setValues] = useState({})
   const [saving, setSaving] = useState(false)
@@ -39,6 +40,13 @@ function BagCard({ bag, isAdmin, onUpdate }) {
 
   async function saveEdit() {
     setSaving(true)
+
+    // Capture changed items from React state before applying updates
+    const changedItems = (bag.bag_contents || []).filter(c => {
+      const newQty = parseInt(values[c.id], 10) || 0
+      return newQty !== c.current_quantity
+    })
+
     const updates = Object.entries(values).map(([id, qty]) =>
       supabase.from('bag_contents').update({ current_quantity: parseInt(qty, 10) || 0 }).eq('id', parseInt(id, 10))
     )
@@ -49,6 +57,18 @@ function BagCard({ bag, isAdmin, onUpdate }) {
     )
     const newCondition = newPct >= 100 ? 'complete' : newPct > 0 ? 'incomplete' : 'damaged'
     await supabase.from('bags').update({ condition: newCondition, updated_at: new Date().toISOString() }).eq('id', bag.id)
+
+    if (changedItems.length > 0 && user) {
+      const parts = changedItems.map(c =>
+        `${c.item_name}: ${c.current_quantity} → ${parseInt(values[c.id], 10) || 0}`
+      )
+      const { error: logErr } = await supabase.from('activity_log').insert({
+        user_id:     user.id,
+        action_type: 'manual_update',
+        description: `[morrales] Morral ${bag.bag_number} — ${parts.join(' | ')}`,
+      })
+      if (logErr) console.error('[activity_log] insert failed:', logErr)
+    }
 
     setSaving(false)
     setEditing(false)

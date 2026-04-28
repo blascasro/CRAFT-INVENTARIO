@@ -49,7 +49,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function Supplies() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const isAdmin = profile?.role === 'admin'
   const [supplies, setSupplies] = useState([])
   const [loading, setLoading] = useState(true)
@@ -79,12 +79,20 @@ export default function Supplies() {
   async function saveStock(id) {
     const val = parseInt(editValue, 10)
     if (isNaN(val) || val < 0) { setEditingId(null); return }
+    const supply = supplies.find(s => s.id === id)
+    const prevStock = supply?.current_stock
     const { error } = await supabase
       .from('supplies')
       .update({ current_stock: val, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (!error) {
       setSupplies(prev => prev.map(s => s.id === id ? { ...s, current_stock: val } : s))
+      const { error: logErr } = await supabase.from('activity_log').insert({
+        user_id:     user.id,
+        action_type: 'manual_update',
+        description: `[insumos] ${supply?.name ?? id}: ${prevStock} → ${val}`,
+      })
+      if (logErr) console.error('[activity_log] insert failed:', logErr)
     }
     setEditingId(null)
   }

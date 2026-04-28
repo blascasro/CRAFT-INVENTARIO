@@ -29,7 +29,7 @@ function ConditionBadge({ condition }) {
 }
 
 export default function Equipment() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const isAdmin = profile?.role === 'admin'
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -77,12 +77,28 @@ export default function Equipment() {
   }
 
   async function saveEdit(id) {
+    const original = items.find(i => i.id === id)
     const { error } = await supabase
       .from('equipment')
       .update({ ...editValues, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (!error) {
       setItems(prev => prev.map(i => i.id === id ? { ...i, ...editValues } : i))
+      const COND = { good: 'Bueno', damaged: 'Dañado', unknown: 'Desconocido' }
+      const parts = []
+      if (original && editValues.condition !== original.condition)
+        parts.push(`${COND[original.condition] ?? original.condition} → ${COND[editValues.condition] ?? editValues.condition}`)
+      if (original && editValues.notes !== (original.notes || ''))
+        parts.push(`notas: "${editValues.notes}"`)
+      if (parts.length > 0) {
+        const itemLabel = `${original.type}${original.item_number ? ' #' + original.item_number : ''}`
+        const { error: logErr } = await supabase.from('activity_log').insert({
+          user_id:     user.id,
+          action_type: 'manual_update',
+          description: `[equipamiento] ${itemLabel}: ${parts.join(' | ')}`,
+        })
+        if (logErr) console.error('[activity_log] insert failed:', logErr)
+      }
     }
     setEditingId(null)
   }
