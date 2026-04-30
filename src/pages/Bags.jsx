@@ -18,7 +18,7 @@ function pctColor(p) {
   return '#ef4444'
 }
 
-function BagCard({ bag, canEdit, onUpdate }) {
+function BagCard({ bag, canEdit, isAdmin, onUpdate, onDelete }) {
   const { user } = useAuth()
   const [editing, setEditing] = useState(false)
   const [values, setValues] = useState({})
@@ -177,20 +177,40 @@ function BagCard({ bag, canEdit, onUpdate }) {
       </div>
 
       {/* Card footer */}
-      {canEdit && (
-        <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          {editing ? (
-            <>
-              <button onClick={() => setEditing(false)} className="btn-secondary" style={{ padding: '5px 12px', fontSize: 12 }} disabled={saving}>
-                Cancelar
+      {(canEdit || isAdmin) && (
+        <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {editing ? (
+              <>
+                <button onClick={() => setEditing(false)} className="btn-secondary" style={{ padding: '5px 12px', fontSize: 12 }} disabled={saving}>
+                  Cancelar
+                </button>
+                <button onClick={saveEdit} className="btn-primary" style={{ padding: '5px 12px', fontSize: 12 }} disabled={saving}>
+                  {saving ? 'Guardando…' : 'Guardar'}
+                </button>
+              </>
+            ) : (
+              <button onClick={startEdit} className="btn-secondary" style={{ padding: '5px 12px', fontSize: 12 }}>
+                Editar cantidades
               </button>
-              <button onClick={saveEdit} className="btn-primary" style={{ padding: '5px 12px', fontSize: 12 }} disabled={saving}>
-                {saving ? 'Guardando…' : 'Guardar'}
-              </button>
-            </>
-          ) : (
-            <button onClick={startEdit} className="btn-secondary" style={{ padding: '5px 12px', fontSize: 12 }}>
-              Editar cantidades
+            )}
+          </div>
+          {isAdmin && !editing && (
+            <button
+              onClick={() => onDelete?.(bag)}
+              style={{
+                padding: '5px 12px',
+                fontSize: 12,
+                borderRadius: 6,
+                border: '1px solid rgba(239,68,68,0.35)',
+                background: 'rgba(239,68,68,0.06)',
+                color: '#ef4444',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-family)',
+                fontWeight: 500,
+              }}
+            >
+              Eliminar
             </button>
           )}
         </div>
@@ -200,22 +220,34 @@ function BagCard({ bag, canEdit, onUpdate }) {
 }
 
 export default function Bags() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const isAdmin = profile?.role === 'admin'
   const canEdit = isAdmin || profile?.role === 'volunteer'
   const [bags, setBags] = useState([])
+  const [bagTypes, setBagTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [addingType, setAddingType] = useState(null) // bag_type id currently being added
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: dbErr } = await withTimeout(
-        supabase.from('bags').select('*, bag_type:bag_types(name), bag_contents(*)').order('bag_number'),
-      )
-      if (dbErr) throw new Error(dbErr.message)
-      setBags(data || [])
+      const [bagsRes, typesRes] = await Promise.all([
+        withTimeout(
+          supabase
+            .from('bags')
+            .select('*, bag_type_id, bag_type:bag_types(id, name), bag_contents(*)')
+            .order('bag_number')
+        ),
+        withTimeout(
+          supabase.from('bag_types').select('*').order('name')
+        ),
+      ])
+      if (bagsRes.error) throw new Error(bagsRes.error.message)
+      if (typesRes.error) throw new Error(typesRes.error.message)
+      setBags(bagsRes.data || [])
+      setBagTypes(typesRes.data || [])
     } catch (err) {
       setError(err.message)
     } finally {
@@ -224,6 +256,86 @@ export default function Bags() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  async function addBag(bagType) {
+    setAddingType(bagType.id)
+    try {
+      // Find next bag_number for this type
+      const bagsOfType = bags.filter(b => b.bag_type_id === bagType.id)
+      const maxNum = bagsOfType.reduce((max, b) => Math.max(max, b.bag_number || 0), 0)
+      const newNumber = maxNum + 1
+
+      // Insert bag
+      const { data: newBag, error: bagErr } = await supabase
+        .from('bags')
+        .insert({
+          bag_number:  newNumber,
+          bag_type_id: bagType.id,
+          condition:   'incomplete',
+        })
+        .select()
+        .single()
+      if (bagErr) throw new Error(bagErr.message)
+
+      // Fetch template items for this bag type
+      const { data: templateItems, error: tplErr } = await supabase
+        .from('bag_type_items')
+        .select('*')
+        .eq('bag_type_id', bagType.id)
+      if (tplErr) throw new Error(tplErr.message)
+
+      // Insert bag_contents from template with current_quantity = 0
+      if (templateItems && templateItems.length > 0) {
+        const contents = templateItems.map(t => ({
+          bag_id:           newBag.id,
+          item_name:        t.item_name,
+          ideal_quantity:   t.ideal_quantity,
+          current_quantity: 0,
+        }))
+        const { error: contErr } = await supabase.from('bag_contents').insert(contents)
+        if (contErr) throw new Error(contErr.message)
+      }
+
+      // Log to activity_log
+      if (user) {
+        const { error: logErr } = await supabase.from('activity_log').insert({
+          user_id:     user.id,
+          action_type: 'manual_update',
+          description: `[morrales] Morral ${newNumber} (${bagType.name}) agregado`,
+        })
+        if (logErr) console.error('[activity_log] insert failed:', logErr)
+      }
+
+      await fetchData()
+    } catch (err) {
+      console.error('Error adding bag:', err)
+      alert('Error al agregar morral: ' + err.message)
+    } finally {
+      setAddingType(null)
+    }
+  }
+
+  async function deleteBag(bag) {
+    const typeName = bag.bag_type?.name || 'Morral'
+    if (!window.confirm(`¿Eliminar ${typeName} #${bag.bag_number}? Esta acción no se puede deshacer.`)) return
+
+    const { error: delErr } = await supabase.from('bags').delete().eq('id', bag.id)
+    if (delErr) {
+      alert('Error al eliminar morral: ' + delErr.message)
+      return
+    }
+
+    if (user) {
+      const { error: logErr } = await supabase.from('activity_log').insert({
+        user_id:     user.id,
+        action_type: 'manual_update',
+        description: `[morrales] Morral ${bag.bag_number} (${typeName}) eliminado`,
+      })
+      if (logErr) console.error('[activity_log] insert failed:', logErr)
+    }
+
+    await fetchData()
+  }
 
   const complete = bags.filter(b => completeness(b.bag_contents) >= 100).length
   const incomplete = bags.filter(b => completeness(b.bag_contents) < 100).length
@@ -284,21 +396,117 @@ export default function Bags() {
         )}
       </div>
 
-      {/* Grid of cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-        gap: 16,
-        marginBottom: 28,
-      }}>
-        {bags.map(bag => (
-          <BagCard key={bag.id} bag={bag} canEdit={canEdit} onUpdate={fetchData} />
-        ))}
-      </div>
-
-      {bags.length === 0 && (
+      {/* Grouped by bag type */}
+      {bagTypes.length === 0 && bags.length === 0 && (
         <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)', fontSize: 14 }}>
           No hay morrales registrados.
+        </div>
+      )}
+
+      {bagTypes.map(bagType => {
+        const typeBags = bags.filter(b => b.bag_type_id === bagType.id)
+        const typeComplete = typeBags.filter(b => completeness(b.bag_contents) >= 100).length
+        const isAdding = addingType === bagType.id
+
+        return (
+          <div key={bagType.id} style={{ marginBottom: 36 }}>
+            {/* Group header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 14,
+              paddingBottom: 10,
+              borderBottom: '2px solid var(--border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.2px' }}>
+                  {bagType.name}
+                </h2>
+                <span style={{
+                  padding: '2px 10px',
+                  borderRadius: 20,
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  fontSize: 12,
+                  color: 'var(--text-muted)',
+                  fontWeight: 600,
+                }}>
+                  {typeBags.length} morral{typeBags.length !== 1 ? 'es' : ''}
+                </span>
+                {typeBags.length > 0 && (
+                  <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
+                    {typeComplete}/{typeBags.length} completos
+                  </span>
+                )}
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={() => addBag(bagType)}
+                  disabled={isAdding}
+                  className="btn-primary"
+                  style={{ padding: '6px 14px', fontSize: 12 }}
+                >
+                  {isAdding ? 'Agregando…' : '+ Agregar morral'}
+                </button>
+              )}
+            </div>
+
+            {/* Cards grid */}
+            {typeBags.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0' }}>
+                No hay morrales de este tipo.
+              </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: 16,
+              }}>
+                {typeBags.map(bag => (
+                  <BagCard
+                    key={bag.id}
+                    bag={bag}
+                    canEdit={canEdit}
+                    isAdmin={isAdmin}
+                    onUpdate={fetchData}
+                    onDelete={deleteBag}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Bags without a known type (fallback) */}
+      {bags.filter(b => !bagTypes.find(t => t.id === b.bag_type_id)).length > 0 && (
+        <div style={{ marginBottom: 36 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            marginBottom: 14, paddingBottom: 10, borderBottom: '2px solid var(--border)',
+          }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Sin tipo asignado</h2>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: 16,
+          }}>
+            {bags
+              .filter(b => !bagTypes.find(t => t.id === b.bag_type_id))
+              .map(bag => (
+                <BagCard
+                  key={bag.id}
+                  bag={bag}
+                  canEdit={canEdit}
+                  isAdmin={isAdmin}
+                  onUpdate={fetchData}
+                  onDelete={deleteBag}
+                />
+              ))
+            }
+          </div>
         </div>
       )}
 
