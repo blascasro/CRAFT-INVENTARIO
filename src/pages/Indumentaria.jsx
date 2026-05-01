@@ -7,10 +7,20 @@ const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL']
 
 const CLOTHING_CONDITION = {
   good:    { label: 'Bueno',      color: '#16a34a', bg: 'rgba(22,163,74,0.1)',    border: 'rgba(22,163,74,0.25)' },
-  worn:    { label: 'Desgastado', color: '#d97706', bg: 'rgba(217,119,6,0.1)',    border: 'rgba(217,119,6,0.25)' },
-  torn:    { label: 'Descosido',  color: '#ea580c', bg: 'rgba(234,88,12,0.1)',    border: 'rgba(234,88,12,0.25)' },
+  worn:    { label: 'Desgastado', color: '#ea580c', bg: 'rgba(234,88,12,0.1)',    border: 'rgba(234,88,12,0.25)' },
+  torn:    { label: 'Descosido',  color: '#ca8a04', bg: 'rgba(202,138,4,0.1)',    border: 'rgba(202,138,4,0.25)' },
   broken:  { label: 'Roto',       color: '#ef4444', bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.25)' },
   missing: { label: 'En falta',   color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.25)' },
+}
+
+// Returns problem tags for a set of items (only non-good conditions that are present)
+function problemTags(itemList) {
+  const tags = []
+  if (itemList.some(i => i.condition === 'missing')) tags.push('Tiene en falta')
+  if (itemList.some(i => i.condition === 'broken'))  tags.push('Tiene rotos')
+  if (itemList.some(i => i.condition === 'worn'))    tags.push('Tiene desgastados')
+  if (itemList.some(i => i.condition === 'torn'))    tags.push('Tiene descosidos')
+  return tags
 }
 
 function ConditionBadge({ condition }) {
@@ -123,6 +133,18 @@ function PrendasSection({ canEdit, isAdmin, user }) {
     byType[item.type][item.size].push(item)
   }
 
+  // Page-level summary counts
+  const typeCount    = Object.keys(byType).length
+  const missingCount = items.filter(i => i.condition === 'missing').length
+  const brokenCount  = items.filter(i => i.condition === 'broken').length
+  const wornCount    = items.filter(i => i.condition === 'worn').length
+  const tornCount    = items.filter(i => i.condition === 'torn').length
+  const pageProblemParts = []
+  if (missingCount > 0) pageProblemParts.push(`${missingCount} en falta`)
+  if (brokenCount > 0)  pageProblemParts.push(`${brokenCount} rota${brokenCount !== 1 ? 's' : ''}`)
+  if (wornCount > 0)    pageProblemParts.push(`${wornCount} desgastada${wornCount !== 1 ? 's' : ''}`)
+  if (tornCount > 0)    pageProblemParts.push(`${tornCount} descosida${tornCount !== 1 ? 's' : ''}`)
+
   const selectSt = {
     padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)',
     background: 'var(--input-bg)', color: 'var(--text)', fontSize: 12,
@@ -141,111 +163,135 @@ function PrendasSection({ canEdit, isAdmin, user }) {
 
   return (
     <div>
+      {/* Page-level summary */}
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+        {items.length} prenda{items.length !== 1 ? 's' : ''} · {typeCount} tipo{typeCount !== 1 ? 's' : ''}
+        {pageProblemParts.length > 0 && (
+          <span style={{ marginLeft: 10, color: '#d97706', fontWeight: 600 }}>
+            ⚠ {pageProblemParts.join(' · ')}
+          </span>
+        )}
+      </p>
+
       {Object.entries(byType).map(([type, bySize]) => {
-        const total = Object.values(bySize).flat().length
+        const typeItems = Object.values(bySize).flat()
+        const total = typeItems.length
         const sizes = sortedSizes(new Set(Object.keys(bySize)))
+        const typeProblems = problemTags(typeItems)
+
         return (
           <div key={type} style={{ marginBottom: 32 }}>
             {/* Type header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, paddingBottom: 8, borderBottom: '2px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14, paddingBottom: 8, borderBottom: '2px solid var(--border)' }}>
               <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.2px' }}>{type}</h2>
               <span style={{ padding: '2px 10px', borderRadius: 20, background: 'var(--bg)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
                 {total}
               </span>
+              {typeProblems.length > 0 && (
+                <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>
+                  ⚠ {typeProblems.join(' · ')}
+                </span>
+              )}
             </div>
 
             {/* Size groups */}
-            {sizes.map(size => (
-              <div key={size} style={{ marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                    Talle {size}
-                  </span>
-                  <span style={{ padding: '1px 7px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                    {bySize[size].length}
-                  </span>
-                </div>
-                <div style={{ background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  <div className="table-responsive">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Nro</th>
-                          <th>Año</th>
-                          <th>Estado</th>
-                          <th>Observación</th>
-                          {(canEdit || isAdmin) && <th>Acción</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bySize[size].map(item => (
-                          <tr key={item.id}>
-                            <td>
-                              <span style={{ fontWeight: item.item_number ? 600 : 400, color: item.item_number ? 'var(--text)' : 'var(--text-muted)' }}>
-                                {item.item_number || 'S/N'}
-                              </span>
-                            </td>
-                            <td style={{ color: item.year_acquired ? 'var(--text)' : 'var(--text-muted)' }}>
-                              {item.year_acquired || '—'}
-                            </td>
-                            <td>
-                              {editingId === item.id ? (
-                                <select
-                                  value={editValues.condition}
-                                  onChange={e => setEditValues(v => ({ ...v, condition: e.target.value }))}
-                                  style={selectSt}
-                                >
-                                  {Object.entries(CLOTHING_CONDITION).map(([k, v]) => (
-                                    <option key={k} value={k}>{v.label}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <ConditionBadge condition={item.condition} />
-                              )}
-                            </td>
-                            <td>
-                              {editingId === item.id ? (
-                                <input
-                                  value={editValues.notes}
-                                  onChange={e => setEditValues(v => ({ ...v, notes: e.target.value }))}
-                                  placeholder="Sin observaciones"
-                                  style={inputSt}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') saveEdit(item.id)
-                                    if (e.key === 'Escape') setEditingId(null)
-                                  }}
-                                />
-                              ) : (
-                                <span style={{ color: item.notes ? 'var(--text)' : 'var(--text-muted)', fontSize: 13 }}>
-                                  {item.notes || '—'}
+            {sizes.map(size => {
+              const sizeItems = bySize[size]
+              const sizeProblems = problemTags(sizeItems)
+              return (
+                <div key={size} style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', letterSpacing: '0.2px' }}>
+                      {size} ({sizeItems.length})
+                    </span>
+                    {sizeProblems.length > 0 && (
+                      <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>
+                        ⚠ {sizeProblems.join(' · ')}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div className="table-responsive">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Nro</th>
+                            <th>Año</th>
+                            <th>Estado</th>
+                            <th>Observación</th>
+                            {(canEdit || isAdmin) && <th>Acción</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sizeItems.map(item => (
+                            <tr key={item.id}>
+                              <td>
+                                <span style={{ fontWeight: item.item_number ? 600 : 400, color: item.item_number ? 'var(--text)' : 'var(--text-muted)' }}>
+                                  {item.item_number || 'S/N'}
                                 </span>
-                              )}
-                            </td>
-                            {(canEdit || isAdmin) && (
+                              </td>
+                              <td style={{ color: item.year_acquired ? 'var(--text)' : 'var(--text-muted)' }}>
+                                {item.year_acquired || '—'}
+                              </td>
                               <td>
                                 {editingId === item.id ? (
-                                  <div style={{ display: 'flex', gap: 6 }}>
-                                    <button onClick={() => saveEdit(item.id)} className="btn-primary" style={{ padding: '4px 10px', fontSize: 12 }}>Guardar</button>
-                                    <button onClick={() => setEditingId(null)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Cancelar</button>
-                                  </div>
+                                  <select
+                                    value={editValues.condition}
+                                    onChange={e => setEditValues(v => ({ ...v, condition: e.target.value }))}
+                                    style={selectSt}
+                                  >
+                                    {Object.entries(CLOTHING_CONDITION).map(([k, v]) => (
+                                      <option key={k} value={k}>{v.label}</option>
+                                    ))}
+                                  </select>
                                 ) : (
-                                  <div style={{ display: 'flex', gap: 6 }}>
-                                    <button onClick={() => startEdit(item)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Editar</button>
-                                    {isAdmin && (
-                                      <button onClick={() => deleteItem(item)} style={deleteSt}>Eliminar</button>
-                                    )}
-                                  </div>
+                                  <ConditionBadge condition={item.condition} />
                                 )}
                               </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                              <td>
+                                {editingId === item.id ? (
+                                  <input
+                                    value={editValues.notes}
+                                    onChange={e => setEditValues(v => ({ ...v, notes: e.target.value }))}
+                                    placeholder="Sin observaciones"
+                                    style={inputSt}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') saveEdit(item.id)
+                                      if (e.key === 'Escape') setEditingId(null)
+                                    }}
+                                  />
+                                ) : (
+                                  <span style={{ color: item.notes ? 'var(--text)' : 'var(--text-muted)', fontSize: 13 }}>
+                                    {item.notes || '—'}
+                                  </span>
+                                )}
+                              </td>
+                              {(canEdit || isAdmin) && (
+                                <td>
+                                  {editingId === item.id ? (
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                      <button onClick={() => saveEdit(item.id)} className="btn-primary" style={{ padding: '4px 10px', fontSize: 12 }}>Guardar</button>
+                                      <button onClick={() => setEditingId(null)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Cancelar</button>
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                      <button onClick={() => startEdit(item)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Editar</button>
+                                      {isAdmin && (
+                                        <button onClick={() => deleteItem(item)} style={deleteSt}>Eliminar</button>
+                                      )}
+                                    </div>
+                                  )}
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )
       })}
