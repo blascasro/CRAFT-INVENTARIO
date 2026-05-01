@@ -2,7 +2,17 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 
-const TABS = ['Insumos', 'Morrales', 'Equipamiento', 'Usuarios']
+const TABS = ['Insumos', 'Morrales', 'Equipamiento', 'Indumentaria', 'Usuarios']
+
+const SIZE_ORDER_PARAMS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL']
+
+const CLOTHING_COND_PARAMS = {
+  good:    'Bueno',
+  worn:    'Desgastado',
+  torn:    'Descosido',
+  broken:  'Roto',
+  missing: 'En falta',
+}
 
 // Shared styles
 const LABEL = {
@@ -469,6 +479,377 @@ function EquipmentTab() {
   )
 }
 
+// ── Indumentaria tab ──────────────────────────────────────────────────────────
+function IndumentariaTab() {
+  const { user } = useAuth()
+
+  // ── Clothing state ──
+  const [clothing, setClothing] = useState([])
+  const [showClothingModal, setShowClothingModal] = useState(false)
+  const [clothingForm, setClothingForm] = useState({ type: '', size: 'M', item_number: '', year_acquired: '', condition: 'good', notes: '' })
+  const [clothingSaving, setClothingSaving] = useState(false)
+  const [clothingError, setClothingError] = useState(null)
+
+  // ── Accessories state ──
+  const [accessories, setAccessories] = useState([])
+  const [showAccModal, setShowAccModal] = useState(false)
+  const [accForm, setAccForm] = useState({ name: '', registered_stock: '', current_stock: '' })
+  const [accSaving, setAccSaving] = useState(false)
+  const [accError, setAccError] = useState(null)
+  const [editingRegId, setEditingRegId] = useState(null)
+  const [editRegValue, setEditRegValue] = useState('')
+
+  useEffect(() => {
+    supabase.from('clothing').select('*').order('type').order('size').order('item_number', { nullsFirst: true })
+      .then(({ data }) => setClothing(data || []))
+    supabase.from('accessories').select('*').order('name')
+      .then(({ data }) => setAccessories(data || []))
+  }, [])
+
+  const clothingTypes = [...new Set(clothing.map(c => c.type))].sort()
+
+  // Group clothing by type for the list
+  const clothingByType = clothing.reduce((acc, item) => {
+    acc[item.type] = acc[item.type] || []
+    acc[item.type].push(item)
+    return acc
+  }, {})
+
+  async function addClothing() {
+    if (!clothingForm.type.trim()) return
+    setClothingSaving(true)
+    setClothingError(null)
+    const { data: newRow, error: err } = await supabase.from('clothing').insert({
+      type:         clothingForm.type.trim(),
+      size:         clothingForm.size,
+      item_number:  clothingForm.item_number.trim() || null,
+      year_acquired: clothingForm.year_acquired.trim() || null,
+      condition:    clothingForm.condition,
+      notes:        clothingForm.notes.trim() || null,
+    }).select().single()
+    if (err) {
+      setClothingError(err.message)
+    } else {
+      setClothing(prev => [...prev, newRow].sort((a, b) => a.type.localeCompare(b.type) || SIZE_ORDER_PARAMS.indexOf(a.size) - SIZE_ORDER_PARAMS.indexOf(b.size)))
+      await log(user.id, `[indumentaria] Prenda agregada: ${newRow.type} ${newRow.size}${newRow.item_number ? ' #' + newRow.item_number : ''}`)
+      setShowClothingModal(false)
+      setClothingForm({ type: '', size: 'M', item_number: '', year_acquired: '', condition: 'good', notes: '' })
+    }
+    setClothingSaving(false)
+  }
+
+  async function deleteClothing(item) {
+    const label = `${item.type} ${item.size}${item.item_number ? ' #' + item.item_number : ''}`
+    if (!confirm(`¿Eliminar "${label}"? Esta acción no se puede deshacer.`)) return
+    const { error: err } = await supabase.from('clothing').delete().eq('id', item.id)
+    if (!err) {
+      setClothing(prev => prev.filter(i => i.id !== item.id))
+      await log(user.id, `[indumentaria] Prenda eliminada: ${label}`)
+    }
+  }
+
+  async function addAccessory() {
+    if (!accForm.name.trim()) return
+    setAccSaving(true)
+    setAccError(null)
+    const { data: newRow, error: err } = await supabase.from('accessories').insert({
+      name:             accForm.name.trim(),
+      registered_stock: parseInt(accForm.registered_stock, 10) || 0,
+      current_stock:    parseInt(accForm.current_stock, 10) || 0,
+    }).select().single()
+    if (err) {
+      setAccError(err.message)
+    } else {
+      setAccessories(prev => [...prev, newRow].sort((a, b) => a.name.localeCompare(b.name)))
+      await log(user.id, `[indumentaria] Accesorio agregado: ${newRow.name} | cantidad registrada: ${newRow.registered_stock}`)
+      setShowAccModal(false)
+      setAccForm({ name: '', registered_stock: '', current_stock: '' })
+    }
+    setAccSaving(false)
+  }
+
+  async function deleteAccessory(acc) {
+    if (!confirm(`¿Eliminar "${acc.name}"? Esta acción no se puede deshacer.`)) return
+    const { error: err } = await supabase.from('accessories').delete().eq('id', acc.id)
+    if (!err) {
+      setAccessories(prev => prev.filter(a => a.id !== acc.id))
+      await log(user.id, `[indumentaria] Accesorio eliminado: ${acc.name}`)
+    }
+  }
+
+  async function saveRegisteredStock(id) {
+    const val = parseInt(editRegValue, 10)
+    if (isNaN(val) || val < 0) { setEditingRegId(null); return }
+    const acc = accessories.find(a => a.id === id)
+    const prev = acc?.registered_stock
+    const { error: err } = await supabase.from('accessories').update({ registered_stock: val }).eq('id', id)
+    if (!err) {
+      setAccessories(prev => prev.map(a => a.id === id ? { ...a, registered_stock: val } : a))
+      await log(user.id, `[indumentaria] ${acc?.name ?? id}: cantidad registrada ${prev} → ${val}`)
+    }
+    setEditingRegId(null)
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '8px 12px', borderRadius: 8,
+    border: '1px solid var(--border)', background: 'var(--input-bg)',
+    color: 'var(--text)', fontSize: 13, outline: 'none',
+    fontFamily: 'var(--font-family)',
+  }
+
+  const sectionHeader = { fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }
+
+  return (
+    <div>
+      {/* ── Gestión de prendas ── */}
+      <div style={{ marginBottom: 36 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <h3 style={sectionHeader}>Gestión de prendas</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8 }}>
+              Agregar o eliminar prendas de indumentaria. Para editar estado y observaciones usá la sección Indumentaria.
+            </p>
+          </div>
+          <button onClick={() => setShowClothingModal(true)} className="btn-primary" style={{ padding: '8px 16px', fontSize: 13, whiteSpace: 'nowrap', marginLeft: 16 }}>
+            + Agregar prenda
+          </button>
+        </div>
+
+        {Object.keys(clothingByType).length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No hay prendas registradas.</p>
+        ) : (
+          Object.entries(clothingByType).map(([type, typeItems]) => (
+            <div key={type} style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{type}</span>
+                <span style={{ padding: '1px 7px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                  {typeItems.length}
+                </span>
+              </div>
+              <div style={{ background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Talle</th>
+                        <th>Nro</th>
+                        <th>Año</th>
+                        <th>Estado</th>
+                        <th>Observaciones</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {typeItems.map(item => (
+                        <tr key={item.id}>
+                          <td style={{ fontWeight: 600 }}>{item.size}</td>
+                          <td style={{ color: item.item_number ? 'var(--text)' : 'var(--text-muted)' }}>
+                            {item.item_number || 'S/N'}
+                          </td>
+                          <td style={{ color: item.year_acquired ? 'var(--text)' : 'var(--text-muted)' }}>
+                            {item.year_acquired || '—'}
+                          </td>
+                          <td>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
+                              {CLOTHING_COND_PARAMS[item.condition] ?? item.condition}
+                            </span>
+                          </td>
+                          <td style={{ color: item.notes ? 'var(--text)' : 'var(--text-muted)', fontSize: 13 }}>
+                            {item.notes || '—'}
+                          </td>
+                          <td>
+                            <button onClick={() => deleteClothing(item)} style={DELETE_BTN}>Eliminar</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ── Gestión de accesorios ── */}
+      <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, marginTop: 20 }}>
+          <div>
+            <h3 style={sectionHeader}>Gestión de accesorios</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8 }}>
+              Agregar, eliminar y definir cantidades registradas de accesorios.
+            </p>
+          </div>
+          <button onClick={() => setShowAccModal(true)} className="btn-primary" style={{ padding: '8px 16px', fontSize: 13, whiteSpace: 'nowrap', marginLeft: 16 }}>
+            + Agregar accesorio
+          </button>
+        </div>
+
+        {accessories.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No hay accesorios registrados.</p>
+        ) : (
+          <div style={{ background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Accesorio</th>
+                    <th style={{ textAlign: 'right' }}>Cantidad registrada</th>
+                    <th style={{ textAlign: 'right' }}>Cantidad actual</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accessories.map(acc => (
+                    <tr key={acc.id}>
+                      <td style={{ fontWeight: 500 }}>{acc.name}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        {editingRegId === acc.id ? (
+                          <input
+                            type="number" min="0" value={editRegValue} autoFocus
+                            onChange={e => setEditRegValue(e.target.value)}
+                            style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', fontSize: 13, textAlign: 'right', outline: 'none', fontFamily: 'var(--font-family)' }}
+                            onKeyDown={e => { if (e.key === 'Enter') saveRegisteredStock(acc.id); if (e.key === 'Escape') setEditingRegId(null) }}
+                            onBlur={() => saveRegisteredStock(acc.id)}
+                          />
+                        ) : (
+                          <span style={{ fontWeight: 600 }}>{acc.registered_stock ?? '—'}</span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{acc.current_stock ?? '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {editingRegId !== acc.id && (
+                            <button
+                              onClick={() => { setEditingRegId(acc.id); setEditRegValue(String(acc.registered_stock ?? 0)) }}
+                              className="btn-secondary"
+                              style={{ padding: '4px 12px', fontSize: 12 }}
+                            >
+                              Editar cant. reg.
+                            </button>
+                          )}
+                          <button onClick={() => deleteAccessory(acc)} style={DELETE_BTN}>Eliminar</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Modal: agregar prenda ── */}
+      {showClothingModal && (
+        <div className="modal-overlay" onClick={() => { setShowClothingModal(false); setClothingError(null) }}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Agregar prenda</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div>
+                <label style={LABEL}>Tipo *</label>
+                <input
+                  list="clothing-type-list"
+                  style={inputStyle} value={clothingForm.type} autoFocus
+                  onChange={e => setClothingForm(f => ({ ...f, type: e.target.value }))}
+                  placeholder="ej. Chaleco"
+                />
+                <datalist id="clothing-type-list">
+                  {clothingTypes.map(t => <option key={t} value={t} />)}
+                  <option value="Chaleco" />
+                  <option value="Remera" />
+                  <option value="Buzo" />
+                </datalist>
+              </div>
+              <div>
+                <label style={LABEL}>Talle *</label>
+                <select style={{ ...inputStyle, cursor: 'pointer' }} value={clothingForm.size} onChange={e => setClothingForm(f => ({ ...f, size: e.target.value }))}>
+                  {SIZE_ORDER_PARAMS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div>
+                <label style={LABEL}>Número</label>
+                <input style={inputStyle} value={clothingForm.item_number}
+                  onChange={e => setClothingForm(f => ({ ...f, item_number: e.target.value }))} placeholder="S/N" />
+              </div>
+              <div>
+                <label style={LABEL}>Año</label>
+                <input style={inputStyle} value={clothingForm.year_acquired}
+                  onChange={e => setClothingForm(f => ({ ...f, year_acquired: e.target.value }))} placeholder="ej. 2024" />
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={LABEL}>Estado</label>
+              <select style={{ ...inputStyle, cursor: 'pointer' }} value={clothingForm.condition} onChange={e => setClothingForm(f => ({ ...f, condition: e.target.value }))}>
+                {Object.entries(CLOTHING_COND_PARAMS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={LABEL}>Observaciones</label>
+              <input style={inputStyle} value={clothingForm.notes}
+                onChange={e => setClothingForm(f => ({ ...f, notes: e.target.value }))} placeholder="Opcional" />
+            </div>
+            {clothingError && (
+              <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, color: '#ef4444', fontSize: 13, marginBottom: 12 }}>
+                {clothingError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowClothingModal(false); setClothingError(null) }} className="btn-secondary" disabled={clothingSaving}>Cancelar</button>
+              <button onClick={addClothing} disabled={clothingSaving || !clothingForm.type.trim()} className="btn-primary">
+                {clothingSaving ? 'Guardando…' : 'Agregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: agregar accesorio ── */}
+      {showAccModal && (
+        <div className="modal-overlay" onClick={() => { setShowAccModal(false); setAccError(null) }}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Agregar accesorio</h3>
+            <div style={{ marginBottom: 14 }}>
+              <label style={LABEL}>Nombre *</label>
+              <input
+                style={inputStyle} value={accForm.name} autoFocus
+                onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="ej. Gorras"
+                onKeyDown={e => e.key === 'Enter' && addAccessory()}
+              />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <div>
+                <label style={LABEL}>Cantidad registrada</label>
+                <input type="number" min="0" style={inputStyle} value={accForm.registered_stock}
+                  onChange={e => setAccForm(f => ({ ...f, registered_stock: e.target.value }))} placeholder="0" />
+              </div>
+              <div>
+                <label style={LABEL}>Cantidad actual</label>
+                <input type="number" min="0" style={inputStyle} value={accForm.current_stock}
+                  onChange={e => setAccForm(f => ({ ...f, current_stock: e.target.value }))} placeholder="0" />
+              </div>
+            </div>
+            {accError && (
+              <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, color: '#ef4444', fontSize: 13, marginBottom: 12 }}>
+                {accError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowAccModal(false); setAccError(null) }} className="btn-secondary" disabled={accSaving}>Cancelar</button>
+              <button onClick={addAccessory} disabled={accSaving || !accForm.name.trim()} className="btn-primary">
+                {accSaving ? 'Guardando…' : 'Agregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Users tab ─────────────────────────────────────────────────────────────────
 function UsersTab() {
   const [users, setUsers] = useState([])
@@ -658,10 +1039,11 @@ export default function Parameters() {
         ))}
       </div>
 
-      {activeTab === 'Insumos'      && <SuppliesTab />}
-      {activeTab === 'Morrales'     && <BagsTab />}
-      {activeTab === 'Equipamiento' && <EquipmentTab />}
-      {activeTab === 'Usuarios'     && <UsersTab />}
+      {activeTab === 'Insumos'        && <SuppliesTab />}
+      {activeTab === 'Morrales'       && <BagsTab />}
+      {activeTab === 'Equipamiento'   && <EquipmentTab />}
+      {activeTab === 'Indumentaria'   && <IndumentariaTab />}
+      {activeTab === 'Usuarios'       && <UsersTab />}
     </div>
   )
 }
