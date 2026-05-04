@@ -6,12 +6,13 @@ const TABS = ['Insumos', 'Morrales', 'Equipamiento', 'Indumentaria', 'Usuarios']
 
 const SIZE_ORDER_PARAMS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL']
 
+// Keys must match the exact CHECK constraint values in the clothing table
 const CLOTHING_COND_PARAMS = {
-  good:    'Bueno',
-  worn:    'Desgastado',
-  torn:    'Descosido',
-  broken:  'Roto',
-  missing: 'En falta',
+  'Bueno':      'Bueno',
+  'Desgastado': 'Desgastado',
+  'Descosido':  'Descosido',
+  'Roto':       'Roto',
+  'En falta':   'En falta',
 }
 
 // Shared styles
@@ -486,7 +487,7 @@ function IndumentariaTab() {
   // ── Clothing state ──
   const [clothing, setClothing] = useState([])
   const [showClothingModal, setShowClothingModal] = useState(false)
-  const [clothingForm, setClothingForm] = useState({ type: '', size: 'M', item_number: '', year_acquired: '', condition: 'good', notes: '' })
+  const [clothingForm, setClothingForm] = useState({ type: '', size: 'M', item_number: '', year_acquired: '', condition: 'Bueno', notes: '' })
   const [clothingSaving, setClothingSaving] = useState(false)
   const [clothingError, setClothingError] = useState(null)
 

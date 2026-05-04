@@ -5,21 +5,22 @@ import { useAuth } from '../hooks/useAuth'
 
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'XXXXL']
 
+// Keys match the exact CHECK constraint values stored in the DB
 const CLOTHING_CONDITION = {
-  good:    { label: 'Bueno',      color: '#16a34a', bg: 'rgba(22,163,74,0.1)',    border: 'rgba(22,163,74,0.25)' },
-  worn:    { label: 'Desgastado', color: '#ea580c', bg: 'rgba(234,88,12,0.1)',    border: 'rgba(234,88,12,0.25)' },
-  torn:    { label: 'Descosido',  color: '#ca8a04', bg: 'rgba(202,138,4,0.1)',    border: 'rgba(202,138,4,0.25)' },
-  broken:  { label: 'Roto',       color: '#ef4444', bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.25)' },
-  missing: { label: 'En falta',   color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.25)' },
+  'Bueno':      { label: 'Bueno',      color: '#16a34a', bg: 'rgba(22,163,74,0.1)',    border: 'rgba(22,163,74,0.25)' },
+  'Desgastado': { label: 'Desgastado', color: '#ea580c', bg: 'rgba(234,88,12,0.1)',    border: 'rgba(234,88,12,0.25)' },
+  'Descosido':  { label: 'Descosido',  color: '#ca8a04', bg: 'rgba(202,138,4,0.1)',    border: 'rgba(202,138,4,0.25)' },
+  'Roto':       { label: 'Roto',       color: '#ef4444', bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.25)' },
+  'En falta':   { label: 'En falta',   color: '#6b7280', bg: 'rgba(107,114,128,0.1)', border: 'rgba(107,114,128,0.25)' },
 }
 
 // Returns problem tags for a set of items (only non-good conditions that are present)
 function problemTags(itemList) {
   const tags = []
-  if (itemList.some(i => i.condition === 'missing')) tags.push('Tiene en falta')
-  if (itemList.some(i => i.condition === 'broken'))  tags.push('Tiene rotos')
-  if (itemList.some(i => i.condition === 'worn'))    tags.push('Tiene desgastados')
-  if (itemList.some(i => i.condition === 'torn'))    tags.push('Tiene descosidos')
+  if (itemList.some(i => i.condition === 'En falta'))   tags.push('Tiene en falta')
+  if (itemList.some(i => i.condition === 'Roto'))       tags.push('Tiene rotos')
+  if (itemList.some(i => i.condition === 'Desgastado')) tags.push('Tiene desgastados')
+  if (itemList.some(i => i.condition === 'Descosido'))  tags.push('Tiene descosidos')
   return tags
 }
 
@@ -44,7 +45,7 @@ function PrendasSection({ canEdit, isAdmin, user }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editingId, setEditingId] = useState(null)
-  const [editValues, setEditValues] = useState({ condition: 'good', notes: '' })
+  const [editValues, setEditValues] = useState({ condition: 'Bueno', notes: '' })
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -66,7 +67,7 @@ function PrendasSection({ canEdit, isAdmin, user }) {
 
   function startEdit(item) {
     setEditingId(item.id)
-    setEditValues({ condition: item.condition || 'good', notes: item.notes || '' })
+    setEditValues({ condition: item.condition || 'Bueno', notes: item.notes || '' })
   }
 
   async function saveEdit(id) {
@@ -79,8 +80,9 @@ function PrendasSection({ canEdit, isAdmin, user }) {
       setItems(prev => prev.map(i => i.id === id ? { ...i, condition: editValues.condition, notes: editValues.notes } : i))
       if (user && original) {
         const parts = []
+        // condition keys are the DB values themselves, no label mapping needed
         if (editValues.condition !== original.condition)
-          parts.push(`estado ${CLOTHING_CONDITION[original.condition]?.label ?? original.condition} → ${CLOTHING_CONDITION[editValues.condition]?.label ?? editValues.condition}`)
+          parts.push(`estado ${original.condition} → ${editValues.condition}`)
         if (editValues.notes !== (original.notes || ''))
           parts.push(`observación → '${editValues.notes}'`)
         if (parts.length > 0) {
@@ -304,10 +306,8 @@ function AccesoriosSection({ canEdit, isAdmin, user }) {
   const [accessories, setAccessories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [editingId, setEditingId] = useState(null)       // current_stock edit
+  const [editingId, setEditingId] = useState(null) // current_stock edit
   const [editValue, setEditValue] = useState('')
-  const [editingRegId, setEditingRegId] = useState(null) // registered_stock edit
-  const [editRegValue, setEditRegValue] = useState('')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -344,25 +344,6 @@ function AccesoriosSection({ canEdit, isAdmin, user }) {
       }
     }
     setEditingId(null)
-  }
-
-  async function saveRegisteredStock(id) {
-    const val = parseInt(editRegValue, 10)
-    if (isNaN(val) || val < 0) { setEditingRegId(null); return }
-    const acc = accessories.find(a => a.id === id)
-    const prev = acc?.registered_stock
-    const { error: err } = await supabase.from('accessories').update({ registered_stock: val }).eq('id', id)
-    if (!err) {
-      setAccessories(prev => prev.map(a => a.id === id ? { ...a, registered_stock: val } : a))
-      if (user && acc) {
-        const { error: logErr } = await supabase.from('activity_log').insert({
-          user_id: user.id, action_type: 'manual_update',
-          description: `[indumentaria] ${acc.name}: cantidad registrada ${prev} → ${val}`,
-        })
-        if (logErr) console.error('[activity_log] insert failed:', logErr)
-      }
-    }
-    setEditingRegId(null)
   }
 
   async function deleteAccessory(acc) {
@@ -429,33 +410,10 @@ function AccesoriosSection({ canEdit, isAdmin, user }) {
 
             {/* Stats */}
             <div style={{ padding: '10px 16px', flex: 1 }}>
-              {/* Registered stock */}
+              {/* Registered stock — read-only; editable only from Parámetros */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                 <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cantidad registrada</span>
-                {isAdmin && editingRegId === acc.id ? (
-                  <input
-                    type="number" min="0" value={editRegValue} autoFocus
-                    onChange={e => setEditRegValue(e.target.value)}
-                    style={{ width: 70, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', fontSize: 13, textAlign: 'center', outline: 'none', fontFamily: 'var(--font-family)' }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') saveRegisteredStock(acc.id)
-                      if (e.key === 'Escape') setEditingRegId(null)
-                    }}
-                    onBlur={() => saveRegisteredStock(acc.id)}
-                  />
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>{acc.registered_stock ?? '—'}</span>
-                    {isAdmin && (
-                      <button
-                        onClick={() => { setEditingRegId(acc.id); setEditRegValue(String(acc.registered_stock ?? 0)) }}
-                        style={{ padding: '2px 7px', fontSize: 11, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-family)' }}
-                      >
-                        Editar
-                      </button>
-                    )}
-                  </div>
-                )}
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{acc.registered_stock ?? '—'}</span>
               </div>
 
               {/* Current stock */}
