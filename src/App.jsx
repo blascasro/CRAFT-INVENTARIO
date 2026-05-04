@@ -10,6 +10,7 @@ import Bags from './pages/Bags'
 import Parameters from './pages/Parameters'
 import Auditoria from './pages/Auditoria'
 import Indumentaria from './pages/Indumentaria'
+import Calculadora from './pages/Calculadora'
 
 // Pantalla de carga con botón "Reintentar" si tarda más de 8 segundos
 function LoadingScreen({ message }) {
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="insumos" element={<Supplies />} />
         <Route path="morrales" element={<Bags />} />
         <Route path="indumentaria" element={<Indumentaria />} />
+        <Route path="calculadora" element={<Calculadora />} />
         <Route
           path="parametros"
           element={
