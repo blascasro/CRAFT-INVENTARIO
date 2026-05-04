@@ -417,32 +417,37 @@ function AccesoriosSection({ canEdit, isAdmin, user }) {
               </div>
 
               {/* Current stock */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Cantidad actual</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)', gap: 8 }}>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>Cantidad actual</span>
                 {(canEdit || isAdmin) && editingId === acc.id ? (
-                  <input
-                    type="number" min="0" value={editValue} autoFocus
-                    onChange={e => setEditValue(e.target.value)}
-                    style={{ width: 70, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', fontSize: 13, textAlign: 'center', outline: 'none', fontFamily: 'var(--font-family)' }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') saveCurrentStock(acc.id)
-                      if (e.key === 'Escape') setEditingId(null)
-                    }}
-                    onBlur={() => saveCurrentStock(acc.id)}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="number" min="0" value={editValue} autoFocus
+                      onChange={e => setEditValue(e.target.value)}
+                      style={{ width: 64, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', fontSize: 13, textAlign: 'center', outline: 'none', fontFamily: 'var(--font-family)' }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveCurrentStock(acc.id)
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                    />
+                    <button onClick={() => saveCurrentStock(acc.id)} className="btn-primary" style={{ padding: '3px 8px', fontSize: 12 }}>Guardar</button>
+                    <button onClick={() => setEditingId(null)} className="btn-secondary" style={{ padding: '3px 8px', fontSize: 12 }}>Cancelar</button>
+                  </div>
                 ) : (
-                  <span
-                    title={canEdit || isAdmin ? 'Clic para editar' : ''}
-                    onClick={() => { if (canEdit || isAdmin) { setEditingId(acc.id); setEditValue(String(acc.current_stock ?? 0)) } }}
-                    style={{
-                      fontWeight: 700, fontSize: 14,
-                      color: faltante > 0 ? palette.accent : '#16a34a',
-                      cursor: (canEdit || isAdmin) ? 'pointer' : 'default',
-                      padding: '2px 6px', borderRadius: 4,
-                    }}
-                  >
-                    {acc.current_stock ?? 0}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: faltante > 0 ? palette.accent : '#16a34a' }}>
+                      {acc.current_stock ?? 0}
+                    </span>
+                    {(canEdit || isAdmin) && (
+                      <button
+                        onClick={() => { setEditingId(acc.id); setEditValue(String(acc.current_stock ?? 0)) }}
+                        className="btn-secondary"
+                        style={{ padding: '3px 8px', fontSize: 12 }}
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
